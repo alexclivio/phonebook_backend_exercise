@@ -1,9 +1,10 @@
 const mongoose = require('mongoose')
 
-const url = process.env.MONGODB_URI
-
 mongoose.set('strictQuery',false)
 
+const url = process.env.MONGODB_URI
+
+console.log('connecting to', url)
 mongoose.connect(url, { family: 4 })
   .then(result => {
     console.log('connected to MongoDB')
@@ -13,8 +14,20 @@ mongoose.connect(url, { family: 4 })
   })
 
 const personSchema = new mongoose.Schema({
-  name: String, 
-  number: String
+  name:{
+    type: String,
+    minLength: 3,
+    required: true
+  },
+  number: {
+    type: String,
+    validate: {
+      validator: function(v) {
+        return /^\d{2,3}-\d{5}$/.test(v)
+      },
+      message: props => `${props.value} is not a valid phone number!`
+    }
+  }
 })
 
 personSchema.set('toJSON', {
@@ -24,29 +37,5 @@ personSchema.set('toJSON', {
     delete returnedObject.__v
   }
 })
-
-// const Person = mongoose.model('Person', personSchema)
-
-// if (process.argv.length === 3) {
-//   Person.find({}).then(result => {
-//     result.forEach(person => {
-//       console.log(person)
-//     })
-//     mongoose.connection.close()
-//   })
-// } else if (process.argv.length === 5) {
-//     const person = new Person({
-//       name: process.argv[3],
-//       number: process.argv[4]
-//     })
-    
-//     person.save().then(result => {
-//       console.log(`added ${result.name} number ${result.number} to phonebook`)
-//       mongoose.connection.close()
-//     })
-// } else {
-//     console.log("add password or password, name and number")
-//     mongoose.connection.close()
-//   }
 
 module.exports = mongoose.model('Person', personSchema)

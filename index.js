@@ -14,6 +14,16 @@ const requestLogger = (request, response, next) => {
   next()
 }
 
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).send({ error: error.message})
+  }
+  next(error)
+}
+
 app.use(express.json())
 app.use(morgan('tiny'))
 
@@ -24,15 +34,17 @@ app.get('/', (request, response) => {
 app.get('/info', (request, response) => {
   const date = new Date()
 
-  response.send(`
-    <p>Phonebook has info for ${phonebook.length} people.</p>
-    <p>${date}</p>
+  Person.find({}).then(persons => {
+    response.send(`
+      <p>Phonebook has info for ${persons.length} people.</p>
+      <p>${date}</p>
     `)
+  })
 })
 
 app.get('/api/persons', (request, response) => {
-  Person.find({}).then(person => {
-    response.json(person)
+  Person.find({}).then(persons => {
+    response.json(persons)
   })
 })
 
@@ -48,7 +60,7 @@ app.delete('/api/persons/:id', (request, response) => {
   })
 })
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response, next) => {
   const body = request.body
 
   if(!body.name || !body.number) {
@@ -66,7 +78,29 @@ app.post('/api/persons', (request, response) => {
   person.save().then(savedPerson => {
     response.json(savedPerson)
   })
+  .catch(error => next(error))
 })
+
+app.put('/api/persons/:id', (request, response) => {
+  const { name, number } = request.body
+
+  Person.findById(request.params.id).then(person => {
+    console.log("found")
+    if (!person) {
+      return response.status(400).end()
+    }
+
+    person.name = name
+    person.number = number
+
+    return person.save().then(savedPerson => {
+      response.json(savedPerson)
+    })
+  })
+  .catch(error => next(error))
+})
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
